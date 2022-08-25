@@ -2,7 +2,7 @@
 
 With over 140 easy-to-access master variables to play with.
 
-"Rodrigo's Pristine Disco Diffusion v5.61 - v0.10" is directly based off, and has all the features of [Disco Diffusion v5.61 - Now with portrait_generator_v001](https://colab.research.google.com/github/alembics/disco-diffusion/blob/main/Disco_Diffusion.ipynb).
+[Rodrigo's Pristine Disco Diffusion v5.61 - v0.10](https://github.com/rodrigo-barraza/pristine-disco-diffusion) is directly based off, and has all the features of [Disco Diffusion v5.61 - Now with portrait_generator_v001](https://colab.research.google.com/github/alembics/disco-diffusion/blob/main/Disco_Diffusion.ipynb).
 
 No functionality has been removed, nor added. The goal of this notebook is to improve the user experience and highlight all the beautiful functionality provided to us by Disco Diffusion.
 
