@@ -1,0 +1,73 @@
+{
+    "batch_name": "1280x1024",
+    "batch_size": 1,
+    "clamp_grad": "[True]*1000",
+    "clamp_max": "[0.09]*1000",
+    "clip_denoised": false,
+    "clip_guidance_scale": 20000,
+    "clip_models": [
+        "RN50x16::openai",
+        "RN50x64::openai",
+        "ViT-L-14-336::openai",
+        "ViT-B-16::openai",
+        "ViT-B-32::laion2b_e16",
+        "ViT-B-32::openai"
+    ],
+    "cut_ic_pow": "[8]*1000",
+    "cut_icgray_p": "[0.7]*100+[0.6]*100+[0.45]*100+[0.3]*100+[0]*600",
+    "cut_innercut": "[1]*300+[2]*100+[4]*100+[7]*100+[11]*100+[13]*100+[15]*200",
+    "cut_overview": "[14]*300+[13]*100+[11]*100+[8]*100+[4]*100+[2]*100+[0]*200",
+    "cutn_batches": "[8]*1000",
+    "diffusion_model": "512x512_diffusion_uncond_finetune_008100",
+    "diffusion_sampling_mode": "ddim",
+    "eta": 0.7,
+    "n_batches": 1,
+    "name_docarray": "-5yDhuZMFFinWWgh2G9PT",
+    "perlin_init": false,
+    "perlin_mode": "",
+    "randomize_class": true,
+    "range_scale": "[90000]*1000",
+    "sat_scale": "[22000]*1000",
+    "save_rate": 20,
+    "seed": 7048603,
+    "skip_augs": "[False]*1000",
+    "skip_steps": 30,
+    "steps": 333,
+    "text_prompts": {
+        "prompts": [
+            {
+                "text": "an image of a tardigrade transforming into a  cloud, tardigrade, fluffy cloud, lightning, electricity, lightning storm",
+                "weight": "[3]*1000"
+            },
+            {
+                "text": "deviant art, flickr, artstation, octane render, unreal engine",
+                "weight": "[3]*1000"
+            },
+            {
+                "text": "glitter texture, colorful, diamond sparkle, transparent mineral, transparent glass, real prism, mineral luster, glass luster, cubic mineral, prismatic mineral",
+                "weight": "[1]*1000"
+            },
+            {
+                "text": "hyperrealistic, wide depth of field, physically based rendering, pbr render, very detailed, volumetric lighting, octane render, 4k, cinematic, 8k resolution, cinematic lighting, flickr, artstation, atmospheric",
+                "weight": "[1]*1000"
+            },
+            {
+                "text": "jpeg artifacts, watermark, logo, blur, text",
+                "weight": "[-1]*1000"
+            }
+        ],
+        "version": "1"
+    },
+    "transformation_percent": [
+        0.09
+    ],
+    "truncate_overlength_prompt": true,
+    "tv_scale": "[20000]*1000",
+    "use_horizontal_symmetry": false,
+    "use_secondary_model": false,
+    "use_vertical_symmetry": false,
+    "width_height": [
+        1024,
+        1280
+    ]
+}
