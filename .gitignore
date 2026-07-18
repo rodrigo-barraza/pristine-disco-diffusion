@@ -1,0 +1,16 @@
+bench/
+models
+images_out/
+init_images/
+pretrained/
+CLIP/
+guided-diffusion/
+ResizeRight/
+MiDaS/
+AdaBins/
+pytorch3d-lite/
+disco-diffusion/
+open_clip/
+disco_xform_utils.py
+settings.json
+executed.ipynb
