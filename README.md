@@ -23,6 +23,7 @@ Measured on an RTX 4090 (512x768, DDIM, 4 CLIP models — ViT-B/32 + ViT-B/16 + 
 | Perf switches | 0.39 s | 79 s | 2.1x |
 | Perf + `perf_compile_clip` | 0.34 s | 68 s | 2.4x |
 | Perf + `perf_compile_clip` + `perf_clip_streams`, PyTorch 2.13 | 0.31 s | 63 s | 2.6x |
+| + `perf_vectorized_cutouts` (near-identical, opt-in) | ~0.28 s | ~57 s | ~2.9x |
 
 This is essentially the compute floor for *identical* settings: profiled per step, 57% is the 552M-parameter diffusion model's forward+backward (mandated by guiding through the full model), 33% is the 4-CLIP-model ensemble forward+backward, and 10% is cutout generation — all three are the technique itself. CUDA-graph compile modes buy a further ~6% but corrupt the sampler's retained `pred_xstart` tensors, so they are not shipped.
 
@@ -31,6 +32,10 @@ A ready-made [settings-fast.json](settings-fast.json) preset (the original prist
 ### Guidance interval (`perf_guidance_interval`) — optional, off by default
 
 Diffusion guidance matters most while the composition is forming; the final steps mostly polish detail the sampler handles fine on its own. Setting `perf_guidance_interval: 0.75` skips the CLIP guidance pass on the last quarter of steps for ~20-25% faster renders. In side-by-side tests the results were visually indistinguishable, but it is **not** mathematically identical to classic behavior, so it stays opt-in: the default `1.0` guides every step, exactly as the 2022 code does.
+
+### Vectorized cutouts (`perf_vectorized_cutouts`) — optional, off by default
+
+The classic cutout code generates each random inner crop in a Python loop (crop, filter-resize, one at a time). With this switch the same crops — same random positions, same random sizes, same draw order — execute as a single batched GPU operation (~10% faster renders, measured min-of-3 under contention-controlled benchmarking). The trade: inner crops are resampled bilinearly instead of with ResizeRight's filter, so what CLIP sees differs by a resampling filter — near-identical, verified side-by-side to preserve the DD look, but not bit-identical. That's why it ships off by default.
 
 ### A note on cut schedules
 
