@@ -102,6 +102,10 @@ ensemble fwd+bwd, 10% cutouts** — all three are the technique itself.
 - `disco_xform_utils.py` imports midas_utils AND AdaBins `infer` at module level
   even for 2D — the repo *clones* must stay unconditional; only checkpoint
   downloads are 3D-gated.
+- Mid-run CUDA OOM ("CUDA error: out of memory" from a kernel) POISONS the CUDA
+  context — even empty_cache fails afterwards. There is no graceful runtime
+  fallback; OOM policy must be preventive. Hence: clip streams under 'auto' engage
+  only for the pure classic ensemble; any modern CLIP model runs sequentially.
 - Modern OpenCLIP ensemble (ViT-L/H laion2b etc.): loaded fp16 with input-cast
   wrappers (open_clip doesn't auto-cast inputs). Heavy models force checkpointing
   ON and streams OFF under 'auto' — their guidance graphs land after the VRAM
