@@ -37,6 +37,15 @@ Diffusion guidance matters most while the composition is forming; the final step
 
 The classic cutout code generates each random inner crop in a Python loop (crop, filter-resize, one at a time). With this switch the same crops — same random positions, same random sizes, same draw order — execute as a single batched GPU operation (~10% faster renders, measured min-of-3 under contention-controlled benchmarking). The trade: inner crops are resampled bilinearly instead of with ResizeRight's filter, so what CLIP sees differs by a resampling filter — near-identical, verified side-by-side to preserve the DD look, but not bit-identical. That's why it ships off by default.
 
+### Guidance quality upgrades (2026) — optional, off by default
+
+Two research-backed guidance improvements, both opt-in:
+
+- **Schedulable guidance scales**: `clip_guidance_scale`, `tv_scale`, `range_scale` and `sat_scale` now accept schedule strings exactly like the cut schedules (e.g. `"[12000]*850+[26000]*150"`). Training-free-guidance research (TFG, NeurIPS 2024) found an *increasing* strength schedule beats a constant: guide gently while composition self-organizes, then press harder for detail. Plain numbers behave exactly as before, so every existing preset is untouched.
+- **`quality_spherical_mean`**: aggregates cutout CLIP embeddings with a spherical (Karcher) mean on the embedding hypersphere before measuring distance to the prompt (Crowson 2023), instead of averaging per-cutout losses. Outlier cutouts stop yanking the guidance sideways — visibly more singular, coherent compositions in side-by-side tests.
+
+Both verified side-by-side at production settings; the combination gave the most cohesive results with essentially zero added compute.
+
 ### A note on cut schedules
 
 DD 5.61 indexes the 1000-entry cut schedules by raw timestep, so a run of S steps only ever reads **the last S entries** — e.g. at 250 steps, `cut_overview "[12]*400+[4]*600"` never touches the `[12]*400` head and renders with a constant 4 overview cuts. This repo's notebook keeps that behavior bit-for-bit (every 2022 preset was tuned against it), but the shipped `settings.json`/presets now use window-corrected schedules (e.g. `"[12]*850+[4]*150"` for 250 steps) that restore the intended overview-early → detail-late arc, which noticeably improves single-subject compositions.
