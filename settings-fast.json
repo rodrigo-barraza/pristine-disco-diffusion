@@ -1,7 +1,7 @@
 {
-    "batch_name": "TurboDisco",
+    "batch_name": "FastDisco",
     "set_seed": "random_seed",
-    "steps": 150,
+    "steps": 200,
     "width_height_for_512x512_models": [
         512,
         768
@@ -149,11 +149,12 @@
     "watercolor_cut_innercut": "[2]*200+[4]*200+[12]*400+[12]*200",
     "watercolor_cut_ic_pow": "[12]*300+[12]*100+[12]*50+[12]*50+[10]*100+[10]*100+[10]*300",
     "watercolor_cut_icgray_p": "[0.7]*100+[0.6]*100+[0.45]*100+[0.3]*100+[0]*600",
-    "turbo_tf32": true,
-    "turbo_sdpa_attention": true,
-    "turbo_fused_guidance": true,
-    "turbo_compile": "auto",
-    "turbo_compile_clip": true,
-    "turbo_auto_checkpoint": true,
-    "turbo_cudnn_benchmark": true
+    "perf_tf32": true,
+    "perf_sdpa_attention": true,
+    "perf_fused_guidance": true,
+    "perf_compile": "auto",
+    "perf_compile_clip": true,
+    "perf_auto_checkpoint": true,
+    "perf_cudnn_benchmark": true,
+    "perf_guidance_interval": 1.0
 }
