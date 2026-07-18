@@ -12,6 +12,10 @@ The notebook has been modernized for today's stack (PyTorch 2.x, current Google 
 - **Auto VRAM tuning** (`perf_auto_checkpoint`): gradient checkpointing (which re-computes the whole model during every guidance backward pass) is switched off automatically when enough free VRAM is detected.
 - **TF32 + cuDNN autotuning** (`perf_tf32`, `perf_cudnn_benchmark`).
 
+### Control Panel
+
+The notebook now includes an interactive **Control Panel** cell (right after Master Settings): dropdowns, sliders and toggles for every setting, a **phase-based cut-schedule editor** (think in "first 40% of the run" terms — it compiles to DD's quirky window format automatically, with a live preview plot), a **live VRAM + render-time estimator** calibrated against measured data, and **"Max quality for my VRAM" / "Fastest good"** auto-configure buttons. Changes are staged until *Apply & Save* writes `settings.json`, which remains the single source of truth. `settings.json` also carries a JSON Schema ([settings.schema.json](settings.schema.json)) for autocomplete and validation when hand-editing in VS Code.
+
 Everything lives in the new **Performance Settings (2026)** section (the `perf_*` switches — unrelated to the classic animation-only `turbo_mode`) of the master settings and every switch can be turned off to get the exact original 2022 execution path.
 
 Measured on an RTX 4090 (512x768, DDIM, 4 CLIP models — ViT-B/32 + ViT-B/16 + ViT-L/14 + RN50, `use_secondary_model` off, guidance through the full model):

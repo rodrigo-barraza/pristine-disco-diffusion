@@ -110,3 +110,19 @@ ensemble fwd+bwd, 10% cutouts** — all three are the technique itself.
   wrappers (open_clip doesn't auto-cast inputs). Heavy models force checkpointing
   ON and streams OFF under 'auto' — their guidance graphs land after the VRAM
   probes run, so the probes can't see them coming.
+
+## Control Panel (added after the ensemble work)
+
+- Cell index shifted: the panel markdown+code cells sit at indices 5-6; every cell
+  after Settings moved +2. Old edit scripts referencing cells 5+ by index are stale.
+- Panel source of truth: bench/panel_cell.py is the development copy; the notebook
+  cell is the deployed copy. Edit the .py, re-insert (or edit both).
+- Pure helpers (panel_compile_schedule / panel_parse_schedule / panel_estimate /
+  panel_auto_configure) are defined before the ipywidgets gate specifically so they
+  are unit-testable headlessly (see the test in session history: compile/parse
+  roundtrip, estimator calibration bounds, ladder budget behavior).
+- Estimator constants in PANEL_CLIP_COST are calibrated to two measured anchors:
+  classic/512x768/no-ckpt/streams/cutn2 ~15.5GB and classic/ckpt ~9.4GB. ViT-H/bigG
+  timing/memory rows are extrapolations — refine when measured.
+- The schedule editor intentionally hides the last-S-entries quirk: users set
+  run-fraction phases; the compiler emits window-corrected 1000-entry strings.

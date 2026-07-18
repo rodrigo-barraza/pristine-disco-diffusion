@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pristine Disco Diffusion settings",
+  "description": "Settings for rodrigos-pristine-disco-diffusion.ipynb. Any master-settings variable may appear here; this schema documents the most-used and the 2026 additions.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "text_prompts": {
+      "type": "object",
+      "description": "Frame-indexed prompts. Key '0' is the still-image prompt list; each entry may carry a ':weight' suffix.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "steps": { "type": "integer", "minimum": 25, "maximum": 1000, "description": "Diffusion steps. 200-250 = classic quality." },
+    "width_height_for_512x512_models": {
+      "type": "array", "items": { "type": "integer", "multipleOf": 64 }, "minItems": 2, "maxItems": 2,
+      "description": "[width, height], multiples of 64."
+    },
+    "batch_name": { "type": "string" },
+    "set_seed": { "type": "string", "description": "'random_seed' or an integer string." },
+    "n_batches": { "type": "integer", "minimum": 1 },
+    "skip_steps": { "type": "integer", "minimum": 0, "description": "MAINTENANCE: >0 without an init image blends the start toward gray. Use 0 for no-init runs." },
+    "cutn_batches": { "type": "integer", "minimum": 1, "maximum": 8, "description": "CLIP gradient accumulation batches per step. 2 = higher quality, ~+45% step cost." },
+    "clip_guidance_scale": {
+      "type": ["number", "string"],
+      "description": "Number (classic) or 1000-entry schedule string like \"[12000]*850+[26000]*150\". Increasing schedules beat constant (TFG, NeurIPS 2024)."
+    },
+    "tv_scale": { "type": ["number", "string"] },
+    "range_scale": { "type": ["number", "string"] },
+    "sat_scale": { "type": ["number", "string"] },
+    "clamp_max": { "type": "number", "minimum": 0.005, "maximum": 0.5, "description": "Guidance gradient clamp. 0.09 classic; values >=0.09 NaN at few-step samplers." },
+    "cut_overview": { "type": "string", "description": "1000-entry schedule; ONLY THE LAST `steps` ENTRIES EXECUTE (DD 5.61 quirk). The notebook Control Panel writes window-corrected strings automatically." },
+    "cut_innercut": { "type": "string" },
+    "cut_ic_pow": { "type": ["string", "number"] },
+    "cut_icgray_p": { "type": "string" },
+    "clip_ensemble": {
+      "enum": ["custom", "classic", "hybrid", "modern"],
+      "description": "classic = 2021 OpenAI quartet (original DD flavor). hybrid = + LAION ViT-L. modern = LAION L+H (best semantics, ~2x guidance cost). custom = individual toggles."
+    },
+    "quality_spherical_mean": { "type": "boolean", "description": "Karcher-mean cutout aggregation (Crowson 2023). Steadier composition." },
+    "quality_time_travel": { "type": "integer", "minimum": 0, "maximum": 4, "description": "FreeDoM mid-band resampling attempts per step. 0/1 = off, 2 recommended for finals (~+40% time)." },
+    "quality_time_travel_band": { "type": "string", "description": "\"[start, end]\" run fractions for time-travel. Default \"[0.35, 0.75]\"." },
+    "quality_dsg": { "type": "boolean", "description": "Experimental DSG guidance magnitude. Tested worse than classic clamp — leave false." },
+    "quality_dsg_scale": { "type": "number" },
+    "perf_tf32": { "type": "boolean" },
+    "perf_sdpa_attention": { "type": "boolean", "description": "FlashAttention via SDPA. Identical math. Leave true." },
+    "perf_fused_guidance": { "type": "boolean", "description": "Single fused model pass per step. Identical math. Leave true." },
+    "perf_compile": { "enum": ["auto", "on", "off"], "description": "torch.compile the diffusion model. One-time warmup per boot." },
+    "perf_compile_clip": { "type": "boolean", "description": "Also compile CLIP towers. Long first-run warmup, fastest steady state." },
+    "perf_clip_streams": { "enum": ["auto", "on", "off"], "description": "Concurrent CLIP execution. 'auto' engages only for the classic ensemble (OOM safety)." },
+    "perf_auto_checkpoint": { "type": "boolean" },
+    "perf_guidance_interval": { "type": "number", "minimum": 0.5, "maximum": 1.0, "description": "Fraction of steps receiving guidance. 1.0 = classic. 0.75 = ~20-25% faster, visually verified but not bit-identical." },
+    "perf_vectorized_cutouts": { "type": "boolean", "description": "Batched GPU cutouts, ~10% faster, near-identical (bilinear inner-crop filter)." },
+    "perf_cudnn_benchmark": { "type": "boolean" },
+    "use_secondary_model": { "type": "boolean", "description": "Classic fast mode: guidance through a 55MB model instead of the full UNet. Changes the look." },
+    "diffusion_model": { "type": "string" },
+    "diffusion_sampling_mode": { "enum": ["ddim", "plms"] },
+    "eta": { "type": "number" },
+    "init_image": { "type": ["string", "null"] },
+    "animation_mode": { "enum": ["None", "2D", "3D", "Video Input"] }
+  }
+}
