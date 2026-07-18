@@ -19,10 +19,9 @@ Measured on an RTX 4090 (512x768, DDIM, 4 CLIP models — ViT-B/32 + ViT-B/16 + 
 | Configuration | Per step | 200-step image | vs. original |
 |---|---|---|---|
 | Original 2022 path | 0.81 s | 162 s | 1.0x |
-| Perf switches | 0.40 s | 81 s | 2.0x |
-| Perf + `perf_compile_clip` | 0.35 s | 70 s | 2.3x |
-| Perf + `perf_compile_clip`, 150 steps | 0.35 s | 53 s | 3.1x |
-| Perf + `perf_compile_clip`, 100 steps | 0.35 s | 36 s | 4.6x |
+| Perf switches, no torch.compile (e.g. compile unavailable) | 0.63 s | 126 s | 1.3x |
+| Perf switches | 0.39 s | 79 s | 2.1x |
+| Perf + `perf_compile_clip` | 0.34 s | 68 s | 2.4x |
 
 This is essentially the compute floor for *identical* settings: profiled per step, 57% is the 552M-parameter diffusion model's forward+backward (mandated by guiding through the full model), 33% is the 4-CLIP-model ensemble forward+backward, and 10% is cutout generation — all three are the technique itself. CUDA-graph compile modes buy a further ~6% but corrupt the sampler's retained `pred_xstart` tensors, so they are not shipped.
 
