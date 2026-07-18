@@ -46,6 +46,11 @@ Two research-backed guidance improvements, both opt-in:
 
 Both verified side-by-side at production settings; the combination gave the most cohesive results with essentially zero added compute.
 
+Two further switches from the same research sweep:
+
+- **`quality_time_travel`** (+ `quality_time_travel_band`): FreeDoM-style (ICCV 2023) mid-run resampling — each step inside the band where composition forms is attempted N times (re-noise, re-denoise), giving the guidance multiple shots at the timesteps that matter most. Verified side-by-side: visibly richer subject detail and scene integration at ~40% extra render time for `2` with the default band. Recommended for finals.
+- **`quality_dsg`** (+ `quality_dsg_scale`): experimental DSG-inspired (ICLR 2024) closed-form guidance magnitude replacing `clamp_max`. In side-by-side tests this adaptation overdrove saturation and hurt scene structure — it ships off-by-default as a research toy, not a recommendation.
+
 ### A note on cut schedules
 
 DD 5.61 indexes the 1000-entry cut schedules by raw timestep, so a run of S steps only ever reads **the last S entries** — e.g. at 250 steps, `cut_overview "[12]*400+[4]*600"` never touches the `[12]*400` head and renders with a constant 4 overview cuts. This repo's notebook keeps that behavior bit-for-bit (every 2022 preset was tuned against it), but the shipped `settings.json`/presets now use window-corrected schedules (e.g. `"[12]*850+[4]*150"` for 250 steps) that restore the intended overview-early → detail-late arc, which noticeably improves single-subject compositions.
