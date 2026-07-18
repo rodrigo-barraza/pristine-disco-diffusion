@@ -57,6 +57,8 @@ DD 5.61 indexes the 1000-entry cut schedules by raw timestep, so a run of S step
 
 Fidelity note: Disco Diffusion has never been bit-reproducible across runs — cuDNN's convolution backward is nondeterministic, and 200 steps of guidance amplify it into a different composition per run even at a fixed seed on the untouched 2022 code. The perf switches keep the technique and style exactly; they don't (and can't) freeze compositions that were never frozen.
 
+Maintainer reference: [DEVNOTES.md](DEVNOTES.md) records the measured decision log — what was tried, what was rejected and why, verification recipes, and the trap sites future edits should respect.
+
 Also modernized:
 
 - Works on PyTorch >= 2.6 (`torch.load` weights-only default handled) and current Colab runtimes.
