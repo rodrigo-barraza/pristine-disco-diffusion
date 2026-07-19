@@ -230,6 +230,11 @@ class BezierSplatCanvas:
         cp = torch.cat(self.point_params, dim=0).detach().cpu()
         col = torch.cat(self.color_params, dim=0).detach().clamp(0, 1).cpu()
         opa = torch.sigmoid(torch.cat(self.opacity_params, dim=0)).detach().cpu()
+        # opacity compensation: in the splat render a shape's interior rows
+        # STACK (effective coverage ~ 1-(1-a)^depth, depth ~2.5 measured), but
+        # SVG fill-opacity applies once — exporting raw a reads washed-out vs
+        # the preview. Map through the stacking depth so both match.
+        opa = 1 - (1 - opa) ** 2.5
         px = (cp + 1) / 2 * torch.tensor([self.W, self.H], dtype=torch.float32)
         # paint order = depth order: largest bbox area first (drawn first = behind)
         wh = px.max(dim=1).values - px.min(dim=1).values

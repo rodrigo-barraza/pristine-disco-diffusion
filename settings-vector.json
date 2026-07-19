@@ -6,7 +6,7 @@
   },
   "batch_name": "VectorDisco",
   "set_seed": "random_seed",
-  "iterations": 700,
+  "iterations": 1200,
   "width_height": [
     512,
     768
@@ -14,27 +14,27 @@
   "path_schedule": [
     [
       0.0,
-      96,
-      0.16
+      64,
+      0.22
     ],
     [
-      0.35,
-      128,
-      0.07
+      0.1,
+      96,
+      0.09
     ],
     [
-      0.65,
-      96,
-      0.03
+      0.18,
+      64,
+      0.04
     ]
   ],
   "num_paths": 128,
   "num_segments": 4,
-  "cut_overview": "[12]*400+[4]*600",
-  "cut_innercut": "[4]*400+[12]*600",
+  "cut_overview": "[12]*600+[4]*400",
+  "cut_innercut": "[4]*600+[12]*400",
   "cut_ic_pow": "[1]*1000",
   "cut_icgray_p": "[0.2]*400+[0]*600",
-  "cutn_batches": 1,
+  "cutn_batches": 2,
   "skip_augs": false,
   "ViTB32": true,
   "ViTB16": true,
@@ -45,7 +45,7 @@
   "ViTH14_laion2b": false,
   "quality_spherical_mean": true,
   "sds_mode": "primary",
-  "sds_scale": 150,
+  "sds_scale": 300,
   "sds_t_range": [
     0.05,
     0.95
@@ -57,5 +57,9 @@
   "intermediate_saves": 150,
   "export_png_size": 1024,
   "render_gpu": "auto",
-  "renderer": "auto"
+  "renderer": "auto",
+  "sds_anneal": true,
+  "init_image": "",
+  "init_fit_frac": 0.25,
+  "init_scale": 100
 }

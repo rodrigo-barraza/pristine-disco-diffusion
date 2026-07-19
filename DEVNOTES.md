@@ -251,3 +251,26 @@ diagnose future cases by grepping the SVG for negative rgb = NaN casts):
   by keeping interior samples attached (the NaN guards absorb the stability
   cost upstream was avoiding) + 3x points lr baked into the splat branch.
   Verified: 700-iter run composes a coherent subject + full-coverage fields.
+
+### Vector notebook v0.4 — cohesion stack (2026-07-19)
+
+Three levers added for "maximize cohesion", all in bench + notebook:
+
+- **Raster warm-start** (`init_image` + `init_fit_frac` + `init_scale`) — the
+  VectorFusion recipe made native: render a composition with the RASTER
+  notebook, then the vector run (1) colors tier-1 shapes from the target,
+  (2) spends the first init_fit_frac of iterations on a pure MSE fit (no
+  CLIP/SDS — a few ms/it on the splat renderer), (3) keeps init_scale * MSE
+  as an anchor while CLIP+SDS stylize. Verified: composition inherits fully
+  by fit end. Disco composes, vectors interpret.
+- **Annealed SDS** (`sds_anneal`, default on) — DreamTime-style sliding
+  timestep window (0.9→0.15 center, ±0.12): structure early, detail late.
+  Overrides sds_t_range when on.
+- **Cohesion preset** now in settings-vector.json: 1200 iters, 64/96/64
+  tiers at bigger radii, overview-heavy 60% schedules, cutn_batches 2,
+  sds_scale 300.
+
+Ops lesson (cost two crashed runs): the bench GPU is shared with the user's
+interactive notebook kernel — a full guidance stack is ~14GB, two don't fit.
+Never launch a bench run and a notebook e2e/user run concurrently; check
+nvidia-smi first (WSL2 can't list compute PIDs — go by memory.used).
