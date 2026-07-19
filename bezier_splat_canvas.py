@@ -121,7 +121,12 @@ class BezierSplatCanvas:
         ], dim=1)                                                   # (N,2,S,2)
         interp_cp = (1 - self._row_t) * b1.unsqueeze(1) + self._row_t * b2.unsqueeze(1)
         area = torch.sum(bern[None, ..., None] * interp_cp[:, :, None, :, :], dim=3)
-        return boundary, area.detach()                              # area: (N,R,S,2)
+        # upstream detaches area positions; we keep them attached so control
+        # points feel full interior coverage gradients (diffvg-like area
+        # integral) — without it shapes barely move and compositions stay
+        # confetti (v0.3 finding). NaN guards + sigma floors absorb the
+        # stability cost upstream was avoiding.
+        return boundary, area                                       # area: (N,R,S,2)
 
     def _scaling(self, xyz):
         # upstream get_scaling_closed, verbatim in structure: sigma_x from
