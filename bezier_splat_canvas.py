@@ -72,15 +72,23 @@ class BezierSplatCanvas:
         return sum(p.shape[0] for p in self.point_params)
 
     def add_tier(self, count, radius_frac, canvas_snapshot=None, placement_map=None,
-                 use_gradient=False):
+                 centers_px=None, use_gradient=False):
         """Add `count` closed blobs of ~radius_frac*min(W,H) px. Returns the
         three new leaf tensors so the caller can hand them to its optimizers.
         canvas_snapshot (1,3,H,W in [0,1]) colors new shapes from the canvas.
+        centers_px ((count,2) px, optional): precomputed centers — the
+        notebook passes blue-noise best-candidate placements (plain or
+        importance-weighted; see its blue_noise_centers) for even, clump-free
+        coverage. Overrides placement_map.
         placement_map (H,W, nonnegative) biases shape centers toward high
         values — error-guided densification (LIVE / Bezier Splatting's
         densify): detail shapes spawn where the render is most wrong instead
-        of uniformly, which is what lets small shapes earn their keep."""
-        if placement_map is not None:
+        of uniformly, which is what lets small shapes earn their keep. As
+        i.i.d. multinomial draws it clumps (Poisson) — standalone fallback
+        only; prefer centers_px."""
+        if centers_px is not None:
+            centers_px = centers_px.detach().to(self.device).float()
+        elif placement_map is not None:
             pm = placement_map.to(self.device).flatten().clamp_min(0)
             pm = pm + pm.mean() * 0.05          # 5% uniform floor: never starve a region
             idx = torch.multinomial(pm, count, replacement=True)
