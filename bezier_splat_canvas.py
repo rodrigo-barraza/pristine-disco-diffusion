@@ -57,7 +57,10 @@ class BezierSplatCanvas:
         self.S = num_samples          # samples per boundary half
         self.R = area_rows            # interior interpolation rows
         self.point_params = []        # (n_i, 6, 2) normalized, requires_grad
-        self.color_params = []        # (n_i, 3) in [0,1], requires_grad
+        self.color_params = []        # (n_i, 3) gradient stop A in [0,1], requires_grad
+        self.color2_params = []       # (n_i, 3) gradient stop B (== A for flat tiers)
+        self.axis_params = []         # (n_i, 1) gradient axis angle (radians)
+        self.tier_gradient = []       # per-tier bool: does this tier render a gradient?
         self.opacity_params = []      # (n_i, 1) raw logits, requires_grad
         self._bern4 = _bernstein(3, num_samples, device)          # cubic
         row_t = torch.linspace(-2, 2, area_rows, device=device)
@@ -68,7 +71,8 @@ class BezierSplatCanvas:
     def num_shapes(self):
         return sum(p.shape[0] for p in self.point_params)
 
-    def add_tier(self, count, radius_frac, canvas_snapshot=None, placement_map=None):
+    def add_tier(self, count, radius_frac, canvas_snapshot=None, placement_map=None,
+                 use_gradient=False):
         """Add `count` closed blobs of ~radius_frac*min(W,H) px. Returns the
         three new leaf tensors so the caller can hand them to its optimizers.
         canvas_snapshot (1,3,H,W in [0,1]) colors new shapes from the canvas.
@@ -111,10 +115,22 @@ class BezierSplatCanvas:
         # reads washed-out (v0.3 first-run finding)
         opa = torch.full((count, 1), 2.5, device=self.device).requires_grad_(True)
 
+        # two-stop linear gradient (flat tiers keep stop B tied to A and
+        # never optimize it): per-splat color lerps between the stops along a
+        # learned axis — the splat rasterizer interpolates for free, and SVG
+        # export maps to a native <linearGradient>
+        col2 = (col.detach() + torch.randn_like(col) * 0.03).clamp(0, 1)
+        col2 = col2.contiguous().requires_grad_(True)
+        axis = (torch.rand(count, 1, device=self.device) * 2 * math.pi).requires_grad_(True)
+
         self.point_params.append(pts)
         self.color_params.append(col)
+        self.color2_params.append(col2)
+        self.axis_params.append(axis)
+        self.tier_gradient.append(bool(use_gradient))
         self.opacity_params.append(opa)
-        return pts, col, opa
+        return {'points': pts, 'colors': col, 'colors2': col2, 'axis': axis,
+                'opacity': opa, 'use_gradient': bool(use_gradient)}
 
     # ---- geometry (ported from upstream sample_bezier_area) ----
 
@@ -187,6 +203,11 @@ class BezierSplatCanvas:
         bg = self.background if background is None else background.to(self.device)
         cp = torch.cat(self.point_params, dim=0)
         col = torch.cat(self.color_params, dim=0).clamp(0, 1)
+        col2_raw = torch.cat(self.color2_params, dim=0).clamp(0, 1)
+        axis = torch.cat(self.axis_params, dim=0)
+        gmask = torch.cat([torch.full((p.shape[0],), g, dtype=torch.bool, device=self.device)
+                           for p, g in zip(self.point_params, self.tier_gradient)])
+        col2 = torch.where(gmask[:, None], col2_raw, col)   # flat tiers: B == A
         opa = torch.sigmoid(torch.cat(self.opacity_params, dim=0))
         N = cp.shape[0]
 
@@ -209,7 +230,16 @@ class BezierSplatCanvas:
             xyz_flat, scaling, rot, self.H, self.W, tile_bounds)
 
         M = xyz.shape[1] * xyz.shape[2]
-        colors = col[:, None, :].expand(N, M, 3).reshape(-1, 3)
+        # per-splat gradient parameter t: projection of splat position onto
+        # the learned axis, normalized to the shape's own extent (positions
+        # detached — geometry grads flow via the boundary path, not the fill)
+        pos = xyz.detach().reshape(N, M, 2)
+        d = torch.cat([axis.cos(), axis.sin()], dim=1)[:, None, :]      # (N,1,2)
+        proj = (pos * d).sum(-1)                                        # (N,M)
+        lo = proj.amin(dim=1, keepdim=True)
+        hi = proj.amax(dim=1, keepdim=True)
+        t = ((proj - lo) / (hi - lo + 1e-6)).unsqueeze(-1)              # (N,M,1)
+        colors = ((1 - t) * col[:, None, :] + t * col2[:, None, :]).reshape(-1, 3)
         opacity = opa[:, None, :].expand(N, M, 1).reshape(-1, 1)
 
         out = rasterize_gaussians(xys, depth, radii, conics, num_tiles,
@@ -264,9 +294,11 @@ class BezierSplatCanvas:
                 # clamp_ and would poison the shape forever
                 torch.nan_to_num_(p, nan=0.0, posinf=1.0, neginf=-1.0)
                 p.clamp_(-1 - margin, 1 + margin)
-            for c in self.color_params:
+            for c in self.color_params + self.color2_params:
                 torch.nan_to_num_(c, nan=0.5)
                 c.clamp_(0, 1)
+            for a in self.axis_params:
+                torch.nan_to_num_(a, nan=0.0)
             for o in self.opacity_params:
                 torch.nan_to_num_(o, nan=2.5)
                 # soft-edge splats make "fade to transparent" a cheap CLIP
@@ -278,6 +310,10 @@ class BezierSplatCanvas:
     def to_svg(self, path):
         cp = torch.cat(self.point_params, dim=0).detach().cpu()
         col = torch.cat(self.color_params, dim=0).detach().clamp(0, 1).cpu()
+        col2 = torch.cat(self.color2_params, dim=0).detach().clamp(0, 1).cpu()
+        axis = torch.cat(self.axis_params, dim=0).detach().cpu()
+        gmask = torch.cat([torch.full((p.shape[0],), g, dtype=torch.bool)
+                           for p, g in zip(self.point_params, self.tier_gradient)])
         opa = torch.sigmoid(torch.cat(self.opacity_params, dim=0)).detach().cpu()
         # opacity compensation: in the splat render a shape's interior rows
         # STACK (effective coverage ~ 1-(1-a)^depth, depth ~2.5 measured), but
@@ -290,14 +326,37 @@ class BezierSplatCanvas:
         order = torch.argsort(wh[:, 0] * wh[:, 1], descending=True)
         lines = [f'<?xml version="1.0" ?>',
                  f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" '
-                 f'width="{self.W}" height="{self.H}">']
+                 f'width="{self.W}" height="{self.H}">', '<defs>']
+        # gradient defs: axis endpoints = shape bbox extent projected onto the
+        # learned direction (mirrors the renderer's per-shape t normalization)
+        for i in order.tolist():
+            if not gmask[i]:
+                continue
+            p = px[i]
+            c = p.mean(dim=0)
+            dvec = torch.tensor([float(axis[i, 0].cos()), float(axis[i, 0].sin())])
+            proj = ((p - c) * dvec).sum(-1)
+            a1 = c + dvec * proj.min()
+            a2 = c + dvec * proj.max()
+            r1, g1, b1 = (col[i] * 255).round().int().tolist()
+            r2, g2, b2 = (col2[i] * 255).round().int().tolist()
+            lines.append(
+                f'<linearGradient id="g{i}" gradientUnits="userSpaceOnUse" '
+                f'x1="{a1[0]:.2f}" y1="{a1[1]:.2f}" x2="{a2[0]:.2f}" y2="{a2[1]:.2f}">'
+                f'<stop offset="0" stop-color="rgb({r1},{g1},{b1})"/>'
+                f'<stop offset="1" stop-color="rgb({r2},{g2},{b2})"/></linearGradient>')
+        lines.append('</defs>')
         for i in order.tolist():
             p = px[i]
-            r, g, b = (col[i] * 255).round().int().tolist()
             d = (f'M {p[0,0]:.2f} {p[0,1]:.2f} '
                  f'C {p[1,0]:.2f} {p[1,1]:.2f} {p[2,0]:.2f} {p[2,1]:.2f} {p[3,0]:.2f} {p[3,1]:.2f} '
                  f'C {p[4,0]:.2f} {p[4,1]:.2f} {p[5,0]:.2f} {p[5,1]:.2f} {p[0,0]:.2f} {p[0,1]:.2f} Z')
-            lines.append(f'<path d="{d}" fill="rgb({r},{g},{b})" '
+            if gmask[i]:
+                fill = f'url(#g{i})'
+            else:
+                r, g, b = (col[i] * 255).round().int().tolist()
+                fill = f'rgb({r},{g},{b})'
+            lines.append(f'<path d="{d}" fill="{fill}" '
                          f'fill-opacity="{opa[i,0]:.3f}" stroke="none"/>')
         lines.append('</svg>')
         with open(path, 'w') as f:
@@ -311,6 +370,9 @@ class BezierSplatCanvas:
                                 num_samples=self.S, area_rows=self.R)
         big.point_params = self.point_params
         big.color_params = self.color_params
+        big.color2_params = self.color2_params
+        big.axis_params = self.axis_params
+        big.tier_gradient = self.tier_gradient
         big.opacity_params = self.opacity_params
         with torch.no_grad():
             return big.render()

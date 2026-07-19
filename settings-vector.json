@@ -73,5 +73,6 @@
   "palette_k": 8,
   "solidity_scale": 2,
   "perf_compile": true,
-  "perf_autocast": false
+  "perf_autocast": false,
+  "gradient_tiers": 2
 }
