@@ -51,7 +51,7 @@ class BezierSplatCanvas:
     """
 
     def __init__(self, canvas_w, canvas_h, device,
-                 num_samples=32, area_rows=24):
+                 num_samples=32, area_rows=36):
         self.W, self.H = canvas_w, canvas_h
         self.device = device
         self.S = num_samples          # samples per boundary half
@@ -93,8 +93,10 @@ class BezierSplatCanvas:
         else:
             rgb = torch.rand(count, 3, device=self.device)
         col = rgb.contiguous().requires_grad_(True)
-        # sigmoid(1.0) ~ 0.73 starting opacity
-        opa = torch.full((count, 1), 1.0, device=self.device).requires_grad_(True)
+        # sigmoid(2.5) ~ 0.92: splat fills under-cover vs diffvg's hard fills
+        # (Gaussian falloff), so shapes must start near-opaque or the canvas
+        # reads washed-out (v0.3 first-run finding)
+        opa = torch.full((count, 1), 2.5, device=self.device).requires_grad_(True)
 
         self.point_params.append(pts)
         self.color_params.append(col)
@@ -149,7 +151,11 @@ class BezierSplatCanvas:
         mask = (sy < threshold)[:, 2:, :]
         sigma_x[:, 2:, :] = torch.where(mask, torch.min(sx[:, 2:, :], sy[:, 2:, :] * ratio), sx[:, 2:, :])
         sigma_y[:, 2:, :] = torch.where(mask, torch.min(sy[:, 2:, :], sx[:, 2:, :] * ratio), sy[:, 2:, :])
-        return torch.stack([sigma_x, sigma_y], dim=-1).view(-1, 2).detach()
+        scaling = torch.stack([sigma_x, sigma_y], dim=-1).view(-1, 2).detach()
+        # degenerate shapes (points collapsed or pinned at the clamp margin)
+        # produce zero sigmas -> infinite conics -> NaN gradients that killed
+        # whole tiers in early runs; floor keeps every Gaussian invertible
+        return scaling.clamp_min(0.25)
 
     def _rotations(self, xyz):
         diffs = xyz[:, :, 2:, :] - xyz[:, :, :-2, :]
@@ -200,9 +206,20 @@ class BezierSplatCanvas:
     def clamp_(self, margin=0.15):
         with torch.no_grad():
             for p in self.point_params:
+                # scrub non-finite values BEFORE clamping: a NaN survives
+                # clamp_ and would poison the shape forever
+                torch.nan_to_num_(p, nan=0.0, posinf=1.0, neginf=-1.0)
                 p.clamp_(-1 - margin, 1 + margin)
             for c in self.color_params:
+                torch.nan_to_num_(c, nan=0.5)
                 c.clamp_(0, 1)
+            for o in self.opacity_params:
+                torch.nan_to_num_(o, nan=2.5)
+                # soft-edge splats make "fade to transparent" a cheap CLIP
+                # local minimum (measured: optimizer bleaches the canvas);
+                # flat-vector shapes are near-opaque by design, so floor
+                # opacity at sigmoid(0.5) ~ 0.62
+                o.clamp_(0.5, 6.0)
 
     def to_svg(self, path):
         cp = torch.cat(self.point_params, dim=0).detach().cpu()

@@ -57,5 +57,6 @@
   "display_rate": 50,
   "intermediate_saves": 150,
   "export_png_size": 1024,
-  "render_gpu": "auto"
+  "render_gpu": "auto",
+  "renderer": "auto"
 }

@@ -185,3 +185,39 @@ First user runs showed low GPU use and simple output; the causes and fixes:
   is free.
 - OpenCLIP text encoding reuses `clip.tokenize` exactly as the main notebook
   does (same BPE for the shipped laion2b models).
+
+### Vector notebook v0.3 — Bézier Splatting GPU renderer (2026-07-19, same day)
+
+`renderer: 'splat'|'auto'` replaces diffvg with a port of Bézier Splatting (Liu
+et al., NeurIPS 2025, arXiv:2503.16424) in `bezier_splat_canvas.py` (repo root;
+notebook + bench share it). Closed shape = two CUBIC Bézier halves (6 control
+points, SVG-native `M C C Z`); boundary splats carry shape gradients, interior
+fill = Gaussian-CDF-spaced interpolated rows (positions detached — color/opacity
+gradients only, per upstream); depth = bbox area (small draws over large);
+sigmas ported from upstream get_scaling_closed. Points stored normalized
+[-1,1] → points_lr is rescaled by 2/min(W,H); render_at(w,h) gives exact
+arbitrary-resolution export.
+
+Measured: **3.7ms fwd+bwd** at 512x768/320 shapes vs ~1000ms diffvg-CPU (~270x).
+Full-stack iteration (4 CLIP + primary SDS + spherical): 0.34s/it at 512x768 vs
+1.0s/it diffvg-CPU at 384x384.
+
+Toolchain (the hard part — WSL2, no sudo, torch 2.13+cu130 vs system nvcc 12.0):
+- NVIDIA's CUDA-13 pip wheels assemble a complete toolkit INSIDE site-packages:
+  `nvidia-cuda-nvcc` + `nvidia-cuda-crt` + `nvidia-nvvm` (all ==13.0.*,
+  UNSUFFIXED names — the -cu13-suffixed ones are squatting stubs) install into
+  `site-packages/nvidia/cu13/` alongside torch's bundled headers/libs → use that
+  dir as CUDA_HOME (+ `ln -s lib lib64`). cu12-era wheels use a totally
+  different layout (-cu12 suffixes, per-component dirs) — auto-build is gated to
+  torch cu13+; older envs fall back to diffvg with a kernel hint.
+- Version-match nvvm to nvcc: a floating `nvidia-nvvm` resolved to 13.2 and
+  landed in the WRONG site-packages (miniconda leak) with no cicc.
+- gsplat fork: XingtongGe/gsplat @ bcca3ec (2D scale-rot kernels), built with
+  `--no-build-isolation`, TORCH_CUDA_ARCH_LIST=8.9. gcc-13 is fine (nvcc 13
+  accepts it — no gcc-12 dance unlike diffvg/nvcc-12).
+- `pristine-bench` Jupyter kernel registered (bench venv) — the ready-made
+  fast-renderer environment for the notebook.
+
+Upstream deviations (documented in the module docstring): flat RGB+opacity per
+shape (no FeatureAreaModulator/opacity ramps), tier growth instead of
+prune/densify. Diffvg backend kept as fallback + A/B reference.
