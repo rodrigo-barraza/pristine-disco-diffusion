@@ -353,3 +353,23 @@ LIVE/Bezier-Splatting densification idea. Preset gains a 4th micro tier
 room with railing spindles, crisp silhouettes — small shapes now spend
 themselves exactly on the high-error detail zones. 352 shapes total,
 0.475s/it with perf_compile.
+
+### Vector notebook — gradient fills (2026-07-19, `gradient_tiers`)
+
+Two-stop linear gradients per shape, enabled for the first N tiers
+(default 2: background tiers gradient, detail tiers flat — poster-artist
+layering). Implementation: per-splat color = lerp(stopA, stopB, t) where t =
+splat position projected on a learned per-shape axis, normalized to the
+shape's own projected extent; positions detached for t (geometry grads flow
+via the boundary path). Params: +color2 (n,3), +axis angle (n,1, lr 0.05);
+flat tiers keep stop B tied to A and never optimize it. add_tier now returns
+a dict {points, colors, colors2, axis, opacity, use_gradient} — call sites
+register optimizer groups via register_splat_tier(). Palette loss covers
+both stops of gradient tiers (keeps gradients as shading, not rainbows).
+SVG exports native <linearGradient> defs (userSpaceOnUse, axis endpoints =
+projected bbox extent — mirrors the renderer's normalization exactly).
+Motivation + verdict: smooth skies/water were the biggest loss translating
+photos; probe on the dusk-photo warm start shows the sky carried as smooth
+violet->gold transitions inside single shapes. Editor gotcha that bit this
+round: stale builder comments broke exact-match patches — grep the builder
+before patching, the notebook regenerates even if a patch script died.
