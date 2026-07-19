@@ -162,3 +162,26 @@ Build/runtime facts (all measured on this rig, July 2026):
   correction.
 - Secondary model checkpoint now lives in bench/models (sha-pinned, same URI as
   the main notebook's download table).
+
+### Vector notebook v0.2 — raster-parity upgrades (2026-07-19, same day)
+
+First user runs showed low GPU use and simple output; the causes and fixes:
+
+- Low VRAM was *correct behavior* misread: vector mode has no 552M UNet resident
+  unless SDS is on, and the old default ensemble was 2 small CLIP towers. New
+  defaults: the raster notebook's classic four (B/32+B/16+L/14+RN50) +
+  `sds_mode: 'primary'` (the 512 UNet as SDS prior, scale 150) ≈ 5.5-8GB and
+  ~1.0s/it. laion2b OpenCLIP (L/H, fp16 input-cast wrappers copied from the main
+  notebook) are opt-in flags for more.
+- "Simple images" was the flat 128-blob canvas: replaced by `path_schedule`
+  multi-scale progressive tiers (default 96@0.16 → +128@0.07 at 35% → +96@0.03
+  at 65%; LIVE, CVPR 2022). New tiers are colored by sampling the canvas under
+  them — without this they restart as noise and undo composition.
+- `quality_spherical_mean` (Karcher mean) ported as the same opt-in switch as
+  the raster notebook; ON in the shipped vector preset (no 2022 fidelity
+  baseline to preserve in vector mode).
+- Adam `add_param_group` handles mid-run tier unlocks cleanly; diffvg
+  re-serializes the scene every iteration anyway, so appending shapes mid-run
+  is free.
+- OpenCLIP text encoding reuses `clip.tokenize` exactly as the main notebook
+  does (same BPE for the shipped laion2b models).

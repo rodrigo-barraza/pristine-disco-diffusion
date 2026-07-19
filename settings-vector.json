@@ -9,8 +9,25 @@
   "set_seed": "random_seed",
   "iterations": 700,
   "width_height": [
-    384,
-    384
+    512,
+    768
+  ],
+  "path_schedule": [
+    [
+      0.0,
+      96,
+      0.16
+    ],
+    [
+      0.35,
+      128,
+      0.07
+    ],
+    [
+      0.65,
+      96,
+      0.03
+    ]
   ],
   "num_paths": 128,
   "num_segments": 4,
@@ -22,11 +39,14 @@
   "skip_augs": false,
   "ViTB32": true,
   "ViTB16": true,
-  "ViTL14": false,
-  "RN50": false,
+  "ViTL14": true,
+  "RN50": true,
   "RN50x4": false,
-  "sds_mode": "none",
-  "sds_scale": 200,
+  "ViTL14_laion2b": false,
+  "ViTH14_laion2b": false,
+  "quality_spherical_mean": true,
+  "sds_mode": "primary",
+  "sds_scale": 150,
   "sds_t_range": [
     0.05,
     0.95
