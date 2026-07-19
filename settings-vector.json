@@ -66,5 +66,7 @@
   "aesthetic_scale": 0.5,
   "palette_scale": 5,
   "palette_k": 8,
-  "solidity_scale": 2
+  "solidity_scale": 2,
+  "perf_compile": true,
+  "perf_autocast": false
 }

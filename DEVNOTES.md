@@ -318,3 +318,23 @@ added (bench + notebook, all weighted by settings, 0 disables):
 
 Probe verdict at weights 0.3/0.5/5/2: pebble-like shapes, unified palette,
 solid fills — the cutout look is gone. Weights live in settings-vector.json.
+
+### Vector notebook perf switches (2026-07-19, measured)
+
+`perf_compile` (default ON): torch.compile on the CLIP visual towers + SDS
+UNet. Steady-state 0.547 -> 0.480 s/it (12%) at flagship settings; one-time
+warmup ~45s folded into the first iterations (inductor cache persists across
+processes, so subsequent runs skip it). Same corrupted-cache caveat as the
+raster notebook: a killed compile leaves EOFError in codecache -> rm -rf
+/tmp/torchinductor_$USER.
+
+`perf_autocast` (default OFF): fp16 autocast scoped to the CLIP guidance
+block only (render/SDS/geometry stay fp32). Measured NEUTRAL on top of
+compile (0.484 vs 0.480 s/it) — compiled towers already fuse well. Kept as
+an experimental switch. Note the vector notebook has no exact-2022 fidelity
+constraint, so this was a legitimate candidate — it just didn't pay.
+
+User asked about idle CPU: correct behavior post-splat — every heavy stage
+is GPU-resident; a 32-core CPU is ~1-2% of a 4090 on these workloads and
+cannot contribute. The remaining speed lever is multi-seed batching (shared
+model stack, batch dim across canvases) — designed but not built.
