@@ -221,3 +221,33 @@ Toolchain (the hard part — WSL2, no sudo, torch 2.13+cu130 vs system nvcc 12.0
 Upstream deviations (documented in the module docstring): flat RGB+opacity per
 shape (no FeatureAreaModulator/opacity ramps), tier growth instead of
 prune/densify. Diffvg backend kept as fallback + A/B reference.
+
+### Vector splat renderer — first-run pathologies + fixes (2026-07-19, v0.3 follow-up)
+
+Found via SVG postmortem (exported fills record what optimization chose;
+diagnose future cases by grepping the SVG for negative rgb = NaN casts):
+
+- **NaN tier-death (the root cause of everything)**: tier-1 shapes' params went
+  NaN in every early 700-iter run — rgb(-2147483648,...) on exactly the first
+  tier. TWO sources, both fixed: (1) collapsed/pinned control points → zero
+  sigma → infinite conic in the projection backward → `scaling.clamp_min(0.25)`;
+  (2) the fork's alpha rasterizer backward computes `1/(1-alpha)` and some of
+  its forward kernels cap alpha at `min(1.f, …)` → alpha==1 gives inf grads →
+  opacity logits clamped to [0.5, 2.2] (alpha ≤ 0.90, amplification ≤ 10x;
+  stacked interior rows still reach full visual coverage). Plus: grads are
+  nan_to_num'd BEFORE optimizer.step (one poisoned step corrupts Adam state
+  forever), and clamp_ scrubs params as a last resort. NOTE: a first attempt
+  scrubbed params AFTER the step with midpoint fills — that converts a NaN
+  storm into silent param resets every iteration (canvas collapsed to a gray
+  X). Sanitize grads pre-step, never params post-step.
+- **"White-background bleaching" was a misdiagnosis**: pale canvases were the
+  NaN tier-death (dead background tier = white showing; later tiers inited
+  from the white canvas snapshot). With NaN fixed, white bg gives full color
+  (luminance 132/sat 66 vs diffvg 155/64). `background:'random'` is retained
+  only as a CLIPDraw-style experiment, not the default.
+- **Confetti composition**: upstream detaches interior splat positions, so
+  shapes only feel positional gradients through boundary samples — far weaker
+  than diffvg's exact geometry gradients; compositions never organized. Fixed
+  by keeping interior samples attached (the NaN guards absorb the stability
+  cost upstream was avoiding) + 3x points lr baked into the splat branch.
+  Verified: 700-iter run composes a coherent subject + full-coverage fields.
