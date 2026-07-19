@@ -206,6 +206,42 @@ class BezierSplatCanvas:
         out = torch.clamp(out, 0, 1)
         return out.permute(2, 0, 1).unsqueeze(0)
 
+    # ---- shape-quality rewards ----
+
+    def shape_regularity_loss(self, compact_allow=2.2, angle_allow_deg=28.0):
+        """Two differentiable geometry penalties over the ATTACHED boundary
+        samples (gradients sculpt control points directly):
+
+        - isoperimetric compactness perimeter^2/(4*pi*area): 1 for a circle;
+          sickles, ribbons and folded slivers (near-zero shoelace area) score
+          huge. Penalized above `compact_allow`.
+        - turning-angle smoothness: cusps and zigzags produce large tangent
+          direction jumps along the ring; penalized above `angle_allow_deg`.
+
+        Anti-self-intersection comes free: a figure-eight's signed area
+        cancels toward zero, which the compactness term explodes on
+        (cf. VectorFusion's Xing loss, arXiv:2211.11319)."""
+        cp = torch.cat(self.point_params, dim=0)
+        boundary, _ = self._sample(cp)                       # (N,2,S,2) normalized
+        scale = torch.tensor([self.W, self.H], device=cp.device, dtype=cp.dtype)
+        ring = torch.cat([boundary[:, 0], boundary[:, 1].flip(dims=[1])], dim=1)
+        ring = (ring + 1) / 2 * scale                        # (N, 2S, 2) px
+        edges = torch.roll(ring, -1, dims=1) - ring          # closed polygon
+        seg_len = edges.norm(dim=-1).clamp_min(1e-6)
+        perimeter = seg_len.sum(dim=1)
+        x, y = ring[..., 0], ring[..., 1]
+        xn, yn = torch.roll(x, -1, dims=1), torch.roll(y, -1, dims=1)
+        area = 0.5 * (x * yn - xn * y).sum(dim=1).abs().clamp_min(1.0)
+        compact = perimeter.pow(2) / (4 * math.pi * area)
+        compact_pen = (compact - compact_allow).relu().mean()
+
+        theta = torch.atan2(edges[..., 1], edges[..., 0])
+        dtheta = theta - torch.roll(theta, 1, dims=1)
+        dtheta = torch.atan2(dtheta.sin(), dtheta.cos()).abs()   # wrap to [0, pi]
+        allow = math.radians(angle_allow_deg)
+        angle_pen = (dtheta - allow).relu().pow(2).mean()
+        return compact_pen, angle_pen
+
     # ---- persistence ----
 
     def clamp_(self, margin=0.15):

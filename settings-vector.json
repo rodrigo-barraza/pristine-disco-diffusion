@@ -61,5 +61,10 @@
   "sds_anneal": true,
   "init_image": "",
   "init_fit_frac": 0.25,
-  "init_scale": 100
+  "init_scale": 100,
+  "shape_reg_scale": 0.3,
+  "aesthetic_scale": 0.5,
+  "palette_scale": 5,
+  "palette_k": 8,
+  "solidity_scale": 2
 }

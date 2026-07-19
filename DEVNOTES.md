@@ -294,3 +294,27 @@ nvidia-smi first (WSL2 can't list compute PIDs — go by memory.used).
   washed-out. to_svg now maps a -> 1-(1-a)^2.5 (verified via cairosvg
   rasterization: mean abs diff vs splat preview 12.7 -> 10.1/255; remainder
   is inherent soft-vs-crisp edges).
+
+### Vector notebook v0.5 — quality-reward stack (2026-07-19)
+
+User: shapes read as "chaotic cutouts" — correct diagnosis: nothing in the
+loss rewards geometry; shapes are used as adaptive mattes (occluded shapes
+optimize only their visible sliver → crescents). Four differentiable rewards
+added (bench + notebook, all weighted by settings, 0 disables):
+
+- `shape_reg_scale` — in bezier_splat_canvas.shape_regularity_loss():
+  isoperimetric compactness P²/(4πA) penalized above 2.2 (also the de-facto
+  anti-self-intersection: figure-eights shoelace-cancel toward A≈0) + turning-
+  angle smoothness above 28°, both over ATTACHED boundary samples. Weighting
+  in loop: scale * (compact + 4*angle).
+- `aesthetic_scale` — LAION improved-aesthetic-predictor (MLP over L2-normed
+  OpenAI ViT-L/14 embedding; ckpt auto-downloaded to models/, keys are
+  layers.N.* → strip prefix). One extra 224² L/14 forward per iter.
+- `palette_scale`/`palette_k` — K palette anchors k-means-initialized from
+  the warm-start target (torch k-means, 12 iters, 8192 px sample), then a
+  LEARNABLE param in color_optim (lr 0.005); fills attracted to nearest
+  anchor (plain min — subgradient is fine). Applied only after the fit phase.
+- `solidity_scale` — relu(0.88 - opacity) pushes fills to the ceiling.
+
+Probe verdict at weights 0.3/0.5/5/2: pebble-like shapes, unified palette,
+solid fills — the cutout look is gone. Weights live in settings-vector.json.
