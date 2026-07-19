@@ -126,3 +126,39 @@ ensemble fwd+bwd, 10% cutouts** — all three are the technique itself.
   timing/memory rows are extrapolations — refine when measured.
 - The schedule editor intentionally hides the last-S-entries quirk: users set
   run-fraction phases; the compiler emits window-corrected 1000-entry strings.
+
+## Vector Diffusion notebook (2026-07)
+
+`rodrigos-pristine-vector-diffusion.ipynb` — the guidance stack over diffvg Bézier
+paths (CLIPDraw/VectorFusion approach); optimization loop, not a sampler. Dev copy
+of the loop: `bench/vector_bench.py` (same code, argparse; results in
+`bench/vector_runs/`). E2E test dir: `bench/nbtest_vec/` (same recipe as nbtest2/3).
+
+Build/runtime facts (all measured on this rig, July 2026):
+
+- **diffvg needs four patches on the 2026 stack**, all automated in the notebook's
+  setup cell: pybind11 submodule → v2.13.6 (bundled one predates Python 3.11 frame
+  changes); `-std=c++11` → `c++17` in CMakeLists (both nvcc and CXX_STANDARD);
+  build with gcc-12 (nvcc ≤12.3 rejects gcc 13); `LDFLAGS=-static-libstdc++`
+  (conda-based Jupyter kernels resolve conda's old libstdc++ — `GLIBCXX_3.4.30
+  not found` at import — while plain CLI runs pick the system one and work).
+- **setup.py's CUDA autodetect is unreliable**: it probes `torch.cuda` at *build*
+  time and silently produces a CPU-only .so on failure. `pip install .` is also
+  broken (a stray pyproject.toml routes to poetry). Use `setup.py install` with
+  `build_with_cuda` hard-forced (the setup cell seds it).
+- **WSL2: render on CPU.** diffvg allocates scenes with `cudaMallocManaged`; WSL2
+  emulates managed memory via host page faults → GPU backward ~8s vs CPU ~0.25s at
+  384px/96 paths (30x). `render_gpu: 'auto'` detects WSL and picks CPU; CLIP/SDS
+  stay on the GPU either way (autograd bridges the device hop in render_scene).
+  A diffvg fork replacing managed memory with explicit device alloc, or Bézier
+  Splatting (NeurIPS 2025, 30-150x faster rasterizer), are the upgrade paths if
+  vector mode gets heavy use.
+- **Import order**: `import torch` before `pydiffvg` — importing the bare `diffvg`
+  extension first segfaults (needs torch's symbols loaded).
+- Measured: 600 iters, 128 paths, 384², ViT-B/32+B/16, CPU raster = 0.65s/it
+  (~6.5 min). SDS adds ~0.25s/it (secondary) / ~0.4s/it (primary UNet at 512²).
+- Schedules index by fraction-of-run (`int(1000*i/iters)`) — the last-S-entries
+  quirk is a sampler artifact and does NOT apply here; presets need no window
+  correction.
+- Secondary model checkpoint now lives in bench/models (sha-pinned, same URI as
+  the main notebook's download table).

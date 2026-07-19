@@ -12,5 +12,6 @@ pytorch3d-lite/
 disco-diffusion/
 open_clip/
 disco_xform_utils.py
+diffvg/
 settings.json
 executed.ipynb

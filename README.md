@@ -70,6 +70,12 @@ Also modernized:
 - MiDaS/AdaBins (~2.3GB of depth models) and the `timm==0.6.13` pin are now only installed/downloaded for 3D animation runs — 2D image runs skip them entirely.
 - Removed bogus/unused installs (`datetime` shadow package, `pytorch-lightning`, `omegaconf`).
 
+## Vector Diffusion (2026) — sibling notebook
+
+[`rodrigos-pristine-vector-diffusion.ipynb`](rodrigos-pristine-vector-diffusion.ipynb) applies the same guidance stack — CLIP ensemble, Dango cutouts, spherical distance, weighted prompts, schedule strings — to a canvas of **closed cubic Bézier paths** rendered with a differentiable rasterizer ([diffvg](https://github.com/BachiLi/diffvg)), instead of a pixel tensor walked by the sampler. Adam optimizes control points and fill colors directly; the finished piece is a true, editable, infinitely-scalable **SVG**. Optionally the 512×512 guided-diffusion UNet (or the fast secondary model) steers the shapes too, via Score Distillation Sampling ([VectorFusion](https://arxiv.org/abs/2211.11319)-style). Reads `settings-vector.json` ([preset included](settings-vector.json)); a 700-iteration 128-path piece takes ~7 minutes on a 4090 (CPU rasterizer — see DEVNOTES for the WSL2 story). Expect flat poster/illustration aesthetics: painterly raster grain cannot survive vectorization by construction, and prompts ending in "flat vector art" work with the medium rather than against it. Lineage and gotchas are documented in the notebook itself and in [DEVNOTES.md](DEVNOTES.md).
+
+---
+
 [Rodrigo's Pristine Disco Diffusion v5.61 - v0.10](https://github.com/rodrigo-barraza/pristine-disco-diffusion) is directly based off, and has all the features of [Disco Diffusion v5.61 - Now with portrait_generator_v001](https://colab.research.google.com/github/alembics/disco-diffusion/blob/main/Disco_Diffusion.ipynb).
 
 No functionality has been removed, nor added. The goal of this notebook is to improve the user experience and highlight all the beautiful functionality provided to us by Disco Diffusion.
