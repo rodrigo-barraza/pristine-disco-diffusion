@@ -373,3 +373,27 @@ photos; probe on the dusk-photo warm start shows the sky carried as smooth
 violet->gold transitions inside single shapes. Editor gotcha that bit this
 round: stale builder comments broke exact-match patches — grep the builder
 before patching, the notebook regenerates even if a patch script died.
+
+
+### Vector notebook — blue-noise tier placement (2026-07-19)
+
+Shape centers for every tier now come from `blue_noise_centers` (cell 1.2):
+Mitchell best-candidate (SIGGRAPH 1991), the exact-count form of Poisson-disk
+(Bridson 2007). Rationale: i.i.d. `torch.rand` centers are a Poisson process —
+local density variance leaves holes/pileups that only get repaired through
+diffvg/splat boundary gradients (slow, and at small radii the gradient scales
+with shape area). Measured on 384²: mean nearest-neighbor spacing 1.6–1.7x
+uniform-random at n=64–512, ~80% of the hexagonal-packing bound; cost ≤0.1 s
+per tier on CPU (init-only).
+
+Importance-weighted form: candidates drawn from a density map, min-distances
+measured in local-target-spacing units (spacing ∝ 1/sqrt(density)), 5% uniform
+floor. Wiring (`sample_tier_centers` in the run cell, both renderers via
+`centers_px=` / `centers=`): warm-start tier 1 ← init edge map
+(`detail_density`, mean-softened finite differences), unlocked tiers ←
+|render − init_target| error map (previously splat-only multinomial, which
+clumps — 97%-in-strip concentration test now holds with clump-free spacing,
+weighted meanNN 10.4 px vs 6.2 px for i.i.d. multinomial at the same density).
+No-init unlocks are plain blue noise. `placement_map=` on
+`BezierSplatCanvas.add_tier` remains as a standalone fallback only;
+`bench/vector_bench.py` predates this and still uses uniform placement.
