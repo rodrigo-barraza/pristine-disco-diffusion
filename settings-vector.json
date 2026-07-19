@@ -1,8 +1,7 @@
 {
   "text_prompts": {
     "0": [
-      "A beautiful painting of a lighthouse, shining its light across a tumultuous sea of blood by greg rutkowski and thomas kinkade, Trending on artstation.",
-      "yellow color scheme"
+      "A beautiful painting of a lighthouse, shining its light across a tumultuous sea of blood by greg rutkowski and thomas kinkade, Trending on artstation.:1"
     ]
   },
   "batch_name": "VectorDisco",
