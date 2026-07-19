@@ -274,3 +274,23 @@ Ops lesson (cost two crashed runs): the bench GPU is shared with the user's
 interactive notebook kernel — a full guidance stack is ~14GB, two don't fit.
 Never launch a bench run and a notebook e2e/user run concurrently; check
 nvidia-smi first (WSL2 can't list compute PIDs — go by memory.used).
+
+### Vector cohesion round 2 (2026-07-19, v0.4 follow-up)
+
+- **Full-budget fit**: scheduling all path tiers INSIDE init_fit_frac (preset:
+  0/0.1/0.18 within 0.25) lets all 224 shapes vectorize the target before
+  stylization — the single biggest inheritance win.
+- **LPIPS anchor**: fit/anchor loss = MSE + 0.15*LPIPS(vgg), mirroring the
+  raster notebook's init_scale approach; preserves structure while colors
+  stylize. lpips lazily pip-installed by the notebook.
+- **Anneal floor 0.35** (was 0.15): user observed the iter-900 snapshot was
+  MORE detailed than the 1200 final — low-t SDS pulls toward the UNet's
+  blurred denoised mean and sands off late-run detail. Ending the window at
+  mid-noise fixed it.
+- **Intermediate SVGs**: every intermediate save now writes an SVG too —
+  harvest the run at its best moment.
+- **SVG/preview mismatch**: splat interior rows STACK opacity (effective
+  coverage ~1-(1-a)^2.5) but SVG fill-opacity applies once — raw export read
+  washed-out. to_svg now maps a -> 1-(1-a)^2.5 (verified via cairosvg
+  rasterization: mean abs diff vs splat preview 12.7 -> 10.1/255; remainder
+  is inherent soft-vs-crisp edges).
