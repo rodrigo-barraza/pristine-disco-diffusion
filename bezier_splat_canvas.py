@@ -68,12 +68,25 @@ class BezierSplatCanvas:
     def num_shapes(self):
         return sum(p.shape[0] for p in self.point_params)
 
-    def add_tier(self, count, radius_frac, canvas_snapshot=None):
+    def add_tier(self, count, radius_frac, canvas_snapshot=None, placement_map=None):
         """Add `count` closed blobs of ~radius_frac*min(W,H) px. Returns the
         three new leaf tensors so the caller can hand them to its optimizers.
-        canvas_snapshot (1,3,H,W in [0,1]) colors new shapes from the canvas."""
-        centers_px = torch.rand(count, 2, device=self.device) * \
-            torch.tensor([self.W, self.H], device=self.device, dtype=torch.float32)
+        canvas_snapshot (1,3,H,W in [0,1]) colors new shapes from the canvas.
+        placement_map (H,W, nonnegative) biases shape centers toward high
+        values — error-guided densification (LIVE / Bezier Splatting's
+        densify): detail shapes spawn where the render is most wrong instead
+        of uniformly, which is what lets small shapes earn their keep."""
+        if placement_map is not None:
+            pm = placement_map.to(self.device).flatten().clamp_min(0)
+            pm = pm + pm.mean() * 0.05          # 5% uniform floor: never starve a region
+            idx = torch.multinomial(pm, count, replacement=True)
+            cy = (idx // self.W).float()
+            cx = (idx % self.W).float()
+            jitter = torch.rand(count, 2, device=self.device) - 0.5
+            centers_px = torch.stack([cx, cy], dim=1) + jitter
+        else:
+            centers_px = torch.rand(count, 2, device=self.device) * \
+                torch.tensor([self.W, self.H], device=self.device, dtype=torch.float32)
         radius_px = (0.5 + 0.5 * torch.rand(count, 1, device=self.device)) * \
             radius_frac * min(self.W, self.H)
         # 6 control points: anchors at angle 0 and pi, one control between each

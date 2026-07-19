@@ -338,3 +338,18 @@ User asked about idle CPU: correct behavior post-splat — every heavy stage
 is GPU-resident; a 32-core CPU is ~1-2% of a 4090 on these workloads and
 cannot contribute. The remaining speed lever is multi-seed batching (shared
 model stack, batch dim across canvases) — designed but not built.
+
+### Vector notebook — error-guided densification + micro tiers (2026-07-19)
+
+User: shapes never got small enough for fine detail. Three floors identified:
+boundary splat sigma min ~0.75px (shapes <4px render as mush — upstream
+stability clamp, not touched), CLIP's 224px cutout view, and — the fixable
+one — uniform random tier placement (tiny shapes landing on already-correct
+regions get ~zero gradient and idle). Fix: add_tier(placement_map=...) samples
+shape centers via multinomial over an error map (|render - target| when a
+warm-start target exists; 5% uniform floor so no region starves) — the
+LIVE/Bezier-Splatting densification idea. Preset gains a 4th micro tier
+(128 shapes @ radius 0.018 ~ 9px, unlocking at 55%). Probe verdict: lantern
+room with railing spindles, crisp silhouettes — small shapes now spend
+themselves exactly on the high-error detail zones. 352 shapes total,
+0.475s/it with perf_compile.
