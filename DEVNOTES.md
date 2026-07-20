@@ -440,3 +440,29 @@ entries harmlessly (post-backward, replaced next refresh); centers are
 clamped in refresh instead. Phase 2 (multi-class blue noise per hue class,
 overlap penalty) and Phase 3 (mean-preserving chroma-spread reward) are
 specced in docs/divisionism-survey.md, not built.
+
+
+### Divisionism mode — e2e verified (2026-07-19, both renderers)
+
+Unit tests (verbatim cell-1.2 extraction): sRGB/linear + Oklab roundtrips;
+complement pairs exactly 180° with chroma boost IN GAMUT — required replacing
+the naive RGB clamp with hue-preserving gamut projection (chroma bisection
+along the constant-hue line; the clamp was rotating hues ~35°). scielab_loss
+headline property measured: a 2px two-hue checkerboard whose LINEAR average
+equals the flat target scores dE 0.06 vs 7.30 for a flat mismatch of the
+same linear magnitude (~120x cheaper; plain MSE rates them 5:1 the OTHER
+way) — hue dithering is free, wrong means are not. 0.007s/call at 192² CPU.
+
+E2E (bench/nbtest_vec recipe, 120 it, 256×384, ViTB32+SDS-primary, lantern
+warm start, tiers 24/32/48dot/64dot): splat 0.15s/it, diffvg-CPU 0.48s/it,
+both exit 0. Final SVGs: exactly the 112 dots carry flat rgb fills, 111
+sharing 13 exact palette colors (≤16-entry complementary palette) — hard
+snap verified; dots render as rigid circles at both radii, error-guided
+placement visible. Renders: composition carried by gradient blob tiers,
+divisionist dot texture on top.
+
+Bug found by the diffvg run (PRE-EXISTING, v0.5 palette loss was
+splat-only-tested): diffvg color_vars are per-shape (4,) RGBA leaves, so
+torch.cat gave a 1-D tensor → IndexError in the palette attraction; also
+latent in the no-init k-means source. Fixed: stack + [:, :3] on the diffvg
+branch of both sites.
