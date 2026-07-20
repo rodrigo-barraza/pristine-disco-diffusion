@@ -397,3 +397,46 @@ weighted meanNN 10.4 px vs 6.2 px for i.i.d. multinomial at the same density).
 No-init unlocks are plain blue noise. `placement_map=` on
 `BezierSplatCanvas.add_tier` remains as a standalone fallback only;
 `bench/vector_bench.py` predates this and still uses uniform placement.
+
+
+### Vector notebook — divisionism mode (2026-07-19, Phase 1, NOT yet run e2e)
+
+`divisionism: true` = the trailing `dot_tiers` path_schedule entries unlock as
+rigid pure-hue dot tiers. Mechanism (all in the run cell + cell 1.2 helpers;
+no renderer changes): dot tiers are REPARAMETERIZED — refresh_divisionism()
+runs at the top of render_current() and writes computed tensors into the
+render lists (splat: point_params/color_params[idx]; diffvg: path.points /
+group.fill_color), geometry = center-leaf + fixed ring (radius frozen, random
+phase), color = softmax(logits/tau) @ palette. Autograd flows into
+center/logits/palette leaves; render() re-reads the lists per call so this
+needs zero canvas surgery. tau anneals geometrically (dot_tau [1.0, 0.05])
+from first dot unlock to run end — scolorq's deterministic annealing — and
+export does an argmax hard snap (refresh_divisionism(hard=True) before
+to_svg/render_at). Dot opacity leaf frozen at logit 3.0 (~0.95) and
+unregistered: optical mixing must happen in the eye, not renderer blending.
+
+Palette: k-means anchors (built when palette_scale>0 OR divisionism) +
+Oklab complements (Chevreul/Rood pairs) + chroma_boost 1.4 toward the gamut
+boundary; single leaf shared with the soft palette-attraction loss (which is
+now guarded on palette_scale>0), lr 0.005. Logits init = soft-nearest
+(-8*d^2) from the canvas-snapshot color; logits lr 0.05.
+
+S-CIELAB loss (cell 1.2, scielab_loss): sRGB → linear (Grassmann: partitive
+mixing is linear in linear light ONLY) → XYZ → opponent AC1C2 → per-channel
+sum-of-Gaussians CSF banks (verified Johnson & Fairchild 2003 params; spread
+convention exp(-x^2/sigma^2); kernels capped at min(H,W)//2-1 with reflect
+pad, cached per (ppd,size,device)) → inverse opponent → Lab → dE76 mean.
+Replaces the fit/anchor MSE when scielab_w>0; scielab_scale=-1 means AUTO
+(100 if divisionism else 0 — existing runs unchanged); /300 calibrates
+dE~15 ≈ MSE~0.05 so init_scale semantics carry over. scielab_ppd (default
+40) = virtual viewing distance; wider ppd → wider chroma blur → more
+dithering freedom.
+
+Plumbing gotchas for future edits: pending_tiers entries are now
+(tier_idx, frac, count, radius) — index routes trailing tiers to
+add_dot_tier; tier 0 can never be a dot tier (n_dot_tiers capped at
+len(tiers)-1). clamp_()'s in-place ops hit the computed (non-leaf) dot
+entries harmlessly (post-backward, replaced next refresh); centers are
+clamped in refresh instead. Phase 2 (multi-class blue noise per hue class,
+overlap penalty) and Phase 3 (mean-preserving chroma-spread reward) are
+specced in docs/divisionism-survey.md, not built.
